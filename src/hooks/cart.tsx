@@ -30,24 +30,81 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const productsSerialized = await AsyncStorage.getItem(
+        '@GoMarketPlace:cart',
+      );
+
+      if (productsSerialized) {
+        const productsStored = JSON.parse(productsSerialized) as Product[];
+        setProducts([...productsStored]);
+      }
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-    console.log(product);
-  }, []);
+  const handleAsyncStorage = useCallback(async () => {
+    await AsyncStorage.setItem('@GoMarketPlace:cart', JSON.stringify(products));
+  }, [products]);
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+  const increment = useCallback(
+    async id => {
+      const productFinded = products.findIndex(cartItem => cartItem.id === id);
+      if (productFinded >= 0) {
+        const product = products[productFinded];
+        const newProducts = products.slice();
+        product.quantity += 1;
+        newProducts.splice(productFinded, 1, product);
+        setProducts(newProducts);
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+        await handleAsyncStorage();
+      }
+    },
+    [products, handleAsyncStorage],
+  );
+
+  const decrement = useCallback(
+    async id => {
+      const productFinded = products.findIndex(cartItem => cartItem.id === id);
+      if (productFinded >= 0) {
+        const product = products[productFinded];
+        const newProducts = products.slice();
+        product.quantity -= 1;
+        if (product.quantity === 0) {
+          newProducts.splice(productFinded, 1);
+          setProducts(newProducts);
+        } else {
+          newProducts.splice(productFinded, 1, product);
+          setProducts(newProducts);
+        }
+
+        await handleAsyncStorage();
+      }
+    },
+    [products, handleAsyncStorage],
+  );
+
+  const addToCart = useCallback(
+    async ({ id, title, price, image_url, quantity = 0 }: Product) => {
+      const productFinded = products.findIndex(cartItem => cartItem.id === id);
+      if (productFinded >= 0) {
+        increment(id);
+      } else {
+        setProducts([
+          ...products,
+          {
+            id,
+            title,
+            price,
+            image_url,
+            quantity: quantity + 1,
+          },
+        ]);
+      }
+      await handleAsyncStorage();
+    },
+    [increment, setProducts, handleAsyncStorage, products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
